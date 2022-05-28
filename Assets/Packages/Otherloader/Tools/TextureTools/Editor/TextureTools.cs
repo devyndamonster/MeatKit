@@ -21,7 +21,7 @@ public class TextureToolsWindow : EditorWindow
 		GetWindow<TextureToolsWindow>("Texture Tools").Show();
 	}
 
-	#if H3VR_IMPORTED
+#if H3VR_IMPORTED
 
 	private void OnGUI()
 	{
@@ -50,57 +50,50 @@ public class TextureToolsWindow : EditorWindow
 	}
 
 	private void ConvertToOpenGLButtonPressed()
-    {
+	{
 		string assetPath = AssetDatabase.GetAssetPath(SelectedTexture);
 		string extension = Path.GetExtension(assetPath);
 		string pathWithoutExtension = assetPath.Replace(extension, "");
 		string newAssetPath = pathWithoutExtension + "_openGL" + extension;
 
-		ImportNormalTexture(assetPath);
-
-		Texture2D openGLNormal = GetOpenGLFromDirectXNormal(SelectedTexture);
-
-		WriteTextureToAssets(newAssetPath, openGLNormal);
-		ImportNormalTexture(newAssetPath);
+		Texture2D texture = LoadTextureFromPath(GetRealFilePathFromAssetPath(assetPath));
+		texture = InvertGreenChannel(texture);
+		WriteTextureToAssets(newAssetPath, texture);
+		ImportTexture(newAssetPath, GetTextureSettings(assetPath));
 	}
 
 	private void CalculateBlueChannelNormals()
-    {
+	{
 		string assetPath = AssetDatabase.GetAssetPath(SelectedTexture);
 		string extension = Path.GetExtension(assetPath);
 		string pathWithoutExtension = assetPath.Replace(extension, "");
 		string newAssetPath = pathWithoutExtension + "_withBlue" + extension;
 
-		ImportNormalTexture(assetPath);
-
-		Texture2D normalWithBlue = GetNormalWithCalculatedBlueChannel(SelectedTexture);
-
-		WriteTextureToAssets(newAssetPath, normalWithBlue);
-		ImportNormalTexture(newAssetPath);
+		Texture2D texture = LoadTextureFromPath(GetRealFilePathFromAssetPath(assetPath));
+		texture = CalculatedBlueChannel(texture);
+		WriteTextureToAssets(newAssetPath, texture);
+		ImportTexture(newAssetPath, GetTextureSettings(assetPath));
 	}
 
 
-	private void ImportNormalTexture(string assetPath)
-    {
+	private void ImportTexture(string assetPath, TextureImporterSettings settings)
+	{
 		TextureImporter importer = (TextureImporter)TextureImporter.GetAtPath(assetPath);
-
-		importer.isReadable = true;
-		importer.textureType = TextureImporterType.NormalMap;
-		importer.spriteImportMode = SpriteImportMode.Single;
-		importer.alphaSource = TextureImporterAlphaSource.FromInput;
-		importer.alphaIsTransparency = false;
-		importer.mipmapEnabled = true;
-		importer.wrapMode = TextureWrapMode.Repeat;
-
-		EditorUtility.SetDirty(importer);
+		importer.SetTextureSettings(settings);
 		importer.SaveAndReimport();
 	}
 
+	private TextureImporterSettings GetTextureSettings(string assetPath)
+	{
+		TextureImporter importer = (TextureImporter)TextureImporter.GetAtPath(assetPath);
+		TextureImporterSettings settings = new TextureImporterSettings();
+		importer.ReadTextureSettings(settings);
+		return settings;
+	}
+
 	private void WriteTextureToAssets(string assetPath, Texture2D texture)
-    {
-		Debug.Log(assetPath);
-		string realFilePath = Application.dataPath + assetPath.Replace("Assets", "");
-		Debug.Log(realFilePath);
+	{
+		string realFilePath = GetRealFilePathFromAssetPath(assetPath);
 
 		byte[] bytes = texture.EncodeToPNG();
 		File.WriteAllBytes(realFilePath, bytes);
@@ -109,29 +102,27 @@ public class TextureToolsWindow : EditorWindow
 		AssetDatabase.Refresh();
 	}
 
-	private Texture2D GetOpenGLFromDirectXNormal(Texture2D directXNormal)
-    {
-		Texture2D openGLNormal = new Texture2D(directXNormal.width, directXNormal.height);
-
-		for(int y = 0; y < directXNormal.height; y++)
-        {
-			for(int x = 0; x < directXNormal.width; x++)
-            {
-				Color pixel = directXNormal.GetPixel(x, y);
-				pixel.g = 1 - pixel.g;
-				openGLNormal.SetPixel(x, y, pixel);
-            }
-        }
-
-		openGLNormal.Apply();
-		return openGLNormal;
-    }
 
 
-	private Texture2D GetNormalWithCalculatedBlueChannel(Texture2D normalInput)
+	private Texture2D InvertGreenChannel(Texture2D inputNormal)
 	{
-		Texture2D normalWithBlue = new Texture2D(normalInput.width, normalInput.height);
+		for (int y = 0; y < inputNormal.height; y++)
+		{
+			for (int x = 0; x < inputNormal.width; x++)
+			{
+				Color pixel = inputNormal.GetPixel(x, y);
+				pixel.g = 1 - pixel.g;
+				inputNormal.SetPixel(x, y, pixel);
+			}
+		}
 
+		inputNormal.Apply();
+		return inputNormal;
+	}
+
+
+	private Texture2D CalculatedBlueChannel(Texture2D normalInput)
+	{
 		for (int y = 0; y < normalInput.height; y++)
 		{
 			for (int x = 0; x < normalInput.width; x++)
@@ -142,14 +133,35 @@ public class TextureToolsWindow : EditorWindow
 				pixel.g = pixel.g * 2 - 1;
 				pixel.b = Mathf.Sqrt(1 - pixel.r * pixel.r - pixel.g * pixel.g);
 
-				normalWithBlue.SetPixel(x, y, pixel);
+				normalInput.SetPixel(x, y, pixel);
 			}
 		}
 
-		normalWithBlue.Apply();
-		return normalWithBlue;
+		normalInput.Apply();
+		return normalInput;
 	}
 
+	private string GetRealFilePathFromAssetPath(string assetPath)
+	{
+		Debug.Log(assetPath);
+		string realFilePath = Application.dataPath + assetPath.Replace("Assets", "");
+		Debug.Log(realFilePath);
+		return realFilePath;
+	}
+
+	private Texture2D LoadTextureFromPath(string filePath)
+	{
+		Texture2D tex = null;
+		byte[] fileData;
+
+		if (File.Exists(filePath))
+		{
+			fileData = File.ReadAllBytes(filePath);
+			tex = new Texture2D(2, 2);
+			tex.LoadImage(fileData);
+		}
+		return tex;
+	}
 
 
 #endif
