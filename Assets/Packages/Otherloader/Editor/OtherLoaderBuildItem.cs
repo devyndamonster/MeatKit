@@ -126,7 +126,7 @@ namespace MeatKit
             foreach (Object videoFile in TutorialVideos)
             {
                 string assetPath = AssetDatabase.GetAssetPath(videoFile);
-                File.Copy(assetPath, MeatKit.BundleOutputPath + Path.GetFileName(assetPath));
+                File.Copy(assetPath, BuildWindow.SelectedProfile.ExportPath + Path.GetFileName(assetPath));
             }
         }
 
