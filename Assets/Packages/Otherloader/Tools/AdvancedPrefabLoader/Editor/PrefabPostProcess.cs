@@ -36,36 +36,29 @@ namespace Tools.AdvancedPrefabLoader
 
         public static void ProcessSpawnedObject(GameObject spawned)
         {
-            //Debug.Log("---Script Meta Before Save---");
-            //LogScriptMeta(spawned);
-
             SaveScene();
-
-            //Debug.Log("---Script Meta After Save---");
-            //LogScriptMeta(spawned);
-
-            Debug.Log(GetSceneFilePath());
-            List<int> fileIDs = GetMonoBehaviourFileIDs(spawned);
-            PrintSceneFile();   
+            Dictionary<int, string> scriptReferences = GetMonoBehaviorScriptReferenceDict(spawned);
+            PatchSceneFile(scriptReferences);
         }
 
-        public static List<int> GetMonoBehaviourFileIDs(GameObject spawned)
+
+        public static Dictionary<int, string> GetMonoBehaviorScriptReferenceDict(GameObject spawned)
         {
-            List<int> fileIDs = new List<int>();
+            Dictionary<int, string> scriptReferenceDict = new Dictionary<int, string>();
 
             foreach (var component in spawned.GetComponentsInChildren<MonoBehaviour>())
             {
-                Debug.Log("MonoBehavior: " + component.GetType());
+                if (DoesObjectHaveManagedDLL(component))
+                {
+                    int fileID = GetFileIDForObject(component);
+                    string scriptReference = GetScriptMetaTag(component);
+                    scriptReferenceDict[fileID] = scriptReference;
 
-                int fileID = GetFileIDForObject(component);
-                Debug.Log("MonoBehavior FileID: " + fileID);
-                Debug.Log("MonoBehavior Assembly Name: " + GetAssemblyNameForObject(component));
-                Debug.Log("GUID of assembly: " + AssetDatabase.AssetPathToGUID("Assets/MeatKit/Managed/" + GetAssemblyNameForObject(component) + ".dll"));
-                Debug.Log("Computed FileID for script: " + FileIDUtil.Compute(component.GetType()));
-                fileIDs.Add(fileID);
+                    Debug.Log("MonoBehaviour FileID: " + fileID + ", Script Reference: " + scriptReference);
+                }
             }
 
-            return fileIDs;
+            return scriptReferenceDict;
         }
 
         public static void SaveScene()
@@ -84,12 +77,99 @@ namespace Tools.AdvancedPrefabLoader
             return targetObject.GetType().Assembly.GetName().Name;
         }
 
-        public static void PrintSceneFile()
+        public static string GetScriptMetaTag(UnityEngine.Object targetObject)
         {
-            foreach(string line in File.ReadAllLines(GetSceneFilePath()))
+            string metadata = 
+                "{fileID: " +
+                FileIDUtil.Compute(targetObject.GetType()).ToString() + 
+                ", guid: " +
+                GetAssemblyGUIDForObject(targetObject) +
+                ", type: 3}";
+
+            return metadata;
+        }
+
+        public static bool DoesObjectHaveManagedDLL(UnityEngine.Object targetObject)
+        {
+            return !string.IsNullOrEmpty(GetAssemblyGUIDForObject(targetObject));
+        }
+
+        public static string GetAssemblyPathForObject(UnityEngine.Object targetObject)
+        {
+            return "Assets/MeatKit/Managed/" + GetAssemblyNameForObject(targetObject) + ".dll";
+        }
+
+        public static string GetAssemblyGUIDForObject(UnityEngine.Object targetObject)
+        {
+            return AssetDatabase.AssetPathToGUID(GetAssemblyPathForObject(targetObject));
+        }
+
+        public static void PatchSceneFile(Dictionary<int, string> scriptReferences)
+        {
+            Debug.Log("Patching Scene!");
+            Debug.Log("Reference count: " + scriptReferences.Count);
+            string replaceNextScript = "";
+            string[] fileLines = File.ReadAllLines(GetSceneFilePath());
+
+            for(int lineIndex = 0; lineIndex < fileLines.Length; lineIndex++) 
             {
-                //Debug.Log(line);
+                string line = fileLines[lineIndex];
+
+                if (IsLineSceneAsset(line))
+                {
+                    int fileID = GetFileIDFromSceneLine(line);
+                    if (scriptReferences.ContainsKey(fileID))
+                    {
+                        replaceNextScript = scriptReferences[fileID];
+                    }
+                }
+
+                else if (!string.IsNullOrEmpty(replaceNextScript) && IsLineMonoBehaviourScript(line))
+                {
+                    line = line.Replace("{fileID: 0}", replaceNextScript);
+                    replaceNextScript = "";
+                    fileLines[lineIndex] = line;
+                }
             }
+
+            UnityEngine.SceneManagement.Scene currentScene = EditorSceneManager.GetActiveScene();
+            string sceneFilePath = GetSceneFilePath();
+            string sceneAssetPath = currentScene.path;
+            
+            UnityEngine.SceneManagement.Scene tempScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
+            EditorSceneManager.SaveScene(tempScene, "tempScene.unity");
+            EditorSceneManager.OpenScene(tempScene.path);
+
+            File.WriteAllLines(sceneFilePath, fileLines);
+
+            EditorSceneManager.OpenScene(sceneAssetPath);
+            SaveScene();
+        }
+
+        private static void LogSceneFile(string[] lines)
+        {
+            foreach(string line in lines)
+            {
+                Debug.Log(line);
+            }
+        }
+
+        private static bool IsLineSceneAsset(string line)
+        {
+            return line.Contains("--- !u!");
+        }
+
+        private static bool IsLineMonoBehaviourScript(string line)
+        {
+            return line.Contains("m_Script:");
+        }
+
+        private static int GetFileIDFromSceneLine(string line)
+        {
+            string lineID = line.Substring(line.IndexOf('&') + 1);
+            int lineIDValue = 0;
+            int.TryParse(lineID, out lineIDValue);
+            return lineIDValue;
         }
     }
 }
