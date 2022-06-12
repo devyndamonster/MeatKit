@@ -24,6 +24,7 @@ namespace Tools.AdvancedPrefabLoader
 
         public static void ProcessSpawnedObject(GameObject spawned)
         {
+            ReplaceMeshes(spawned);
             SaveScene();
             Dictionary<int, string> scriptReferences = GetMonoBehaviorScriptReferenceDict(spawned);
             PatchSceneFile(scriptReferences);
@@ -149,6 +150,38 @@ namespace Tools.AdvancedPrefabLoader
             int lineIDValue = 0;
             int.TryParse(lineID, out lineIDValue);
             return lineIDValue;
+        }
+
+        private static void ReplaceMeshes(GameObject spawned)
+        {
+            foreach (MeshFilter meshFilter in spawned.GetComponentsInChildren<MeshFilter>())
+            {
+                Debug.Log("Replacing mesh: " + meshFilter.sharedMesh.name);
+                string meshPath = "Assets/" + meshFilter.sharedMesh.name + ".asset";
+
+                if (string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(meshPath)))
+                {
+                    Mesh currentMesh = meshFilter.sharedMesh;
+                    Mesh newmesh = new Mesh();
+
+                    newmesh.vertices = currentMesh.vertices;
+                    newmesh.triangles = currentMesh.triangles;
+                    newmesh.uv = currentMesh.uv;
+                    newmesh.normals = currentMesh.normals;
+                    newmesh.colors = currentMesh.colors;
+                    newmesh.tangents = currentMesh.tangents;
+
+                    AssetDatabase.CreateAsset(newmesh, meshPath);
+                    AssetDatabase.Refresh();
+                }
+
+                meshFilter.sharedMesh = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
+            }
+
+            foreach (MeshRenderer meshRenderer in spawned.GetComponentsInChildren<MeshRenderer>())
+            {
+                meshRenderer.materials = new Material[] { AssetDatabase.GetBuiltinExtraResource<Material>("Default-Diffuse.mat") };
+            }
         }
     }
 }
