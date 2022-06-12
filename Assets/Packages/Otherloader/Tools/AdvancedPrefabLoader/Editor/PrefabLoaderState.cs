@@ -18,6 +18,12 @@ namespace Tools.AdvancedPrefabLoader
         [SerializeField]
         private int _selectedAssetIndex;
 
+        [SerializeField]
+        private string _currentAssetPath;
+
+        [SerializeField]
+        private PrefabLoaderSpawnMode _currentSpawnMode;
+
         public string SelectedBundlePath 
         { 
             get { return _selectedBundlePath; }
@@ -36,6 +42,32 @@ namespace Tools.AdvancedPrefabLoader
                 if(_selectedAssetIndex != value)
                 {
                     _selectedAssetIndex = value;
+                    WriteStateToCache(this);
+                }
+            }
+        }
+
+        public string CurrentAssetPath
+        {
+            get { return _currentAssetPath; }
+            set
+            {
+                if (_currentAssetPath != value)
+                {
+                    _currentAssetPath = value;
+                    WriteStateToCache(this);
+                }
+            }
+        }
+
+        public PrefabLoaderSpawnMode CurrentSpawnMode
+        {
+            get { return _currentSpawnMode; }
+            set
+            {
+                if (_currentSpawnMode != value)
+                {
+                    _currentSpawnMode = value;
                     WriteStateToCache(this);
                 }
             }
@@ -96,7 +128,9 @@ namespace Tools.AdvancedPrefabLoader
         public void SetSelectedAssetBundle(string bundlePath, string[] assetNames)
         {
             _selectedBundlePath = bundlePath;
-            _assetNames = assetNames;
+            _assetNames = assetNames.OrderByDescending(o => o.Count(sub => sub == '/')).ToArray();
+            _currentAssetPath = "";
+            _selectedAssetIndex = 0;
             WriteStateToCache(this);
         }
 
@@ -106,4 +140,11 @@ namespace Tools.AdvancedPrefabLoader
         }
 
     }
+
+    public enum PrefabLoaderSpawnMode
+    {
+        Temporary,
+        DeepCopy
+    }
+
 }

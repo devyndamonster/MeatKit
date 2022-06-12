@@ -22,18 +22,6 @@ namespace Tools.AdvancedPrefabLoader
             return localIdProp.intValue;
         }
 
-        public static void LogScriptMeta(GameObject spawned)
-        {
-            Debug.Log("Gameobject FileID: " + GetFileIDForObject(spawned));
-
-            foreach (var component in spawned.GetComponents<Component>())
-            {
-                Debug.Log("Component: " + component.GetType());
-                Debug.Log("Computed FileID: " + FileIDUtil.Compute(component.GetType()));
-                Debug.Log("Component FileID: " + GetFileIDForObject(component));
-            }
-        }
-
         public static void ProcessSpawnedObject(GameObject spawned)
         {
             SaveScene();
@@ -53,8 +41,6 @@ namespace Tools.AdvancedPrefabLoader
                     int fileID = GetFileIDForObject(component);
                     string scriptReference = GetScriptMetaTag(component);
                     scriptReferenceDict[fileID] = scriptReference;
-
-                    Debug.Log("MonoBehaviour FileID: " + fileID + ", Script Reference: " + scriptReference);
                 }
             }
 
@@ -146,13 +132,6 @@ namespace Tools.AdvancedPrefabLoader
             SaveScene();
         }
 
-        private static void LogSceneFile(string[] lines)
-        {
-            foreach(string line in lines)
-            {
-                Debug.Log(line);
-            }
-        }
 
         private static bool IsLineSceneAsset(string line)
         {
