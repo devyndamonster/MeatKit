@@ -20,11 +20,13 @@ namespace Tools.AdvancedPrefabLoader
         [MenuItem("Tools/Advanced Prefab Loader")]
         private static void Init()
         {
-            GetWindow<AdvancedPrefabLoader>().Show();
+            GetWindow<AdvancedPrefabLoader>("AdvPrefabLoader").Show();
         }
 
         private void OnGUI()
         {
+            scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Width(Screen.width), GUILayout.Height(Screen.height - 50));
+
             if (GUILayout.Button("Select Asset Bundle", new GUILayoutOption[] { GUILayout.Height(35) }))
             {
                 SelectNewAssetBundle();
@@ -35,9 +37,9 @@ namespace Tools.AdvancedPrefabLoader
                 GUILayout.Label("Selected Bundle : " + Path.GetFileName(PrefabLoaderState.Instance.SelectedBundlePath));
 
                 DrawHorizontalLine();
-
-                PrefabLoaderState.Instance.CurrentSpawnMode = (PrefabLoaderSpawnMode)GUILayout.Toolbar((int)PrefabLoaderState.Instance.CurrentSpawnMode, Enum.GetNames(typeof(PrefabLoaderSpawnMode)));
-
+                DrawSpawmModeSelector();
+                DrawHorizontalLine();
+                DrawFavorites();
                 DrawHorizontalLine();
 
                 if (PrefabLoaderState.Instance.CurrentAssetPath.Contains("/") && GUILayout.Button("<- Go Back", new GUILayoutOption[] { GUILayout.Height(35) }))
@@ -47,6 +49,8 @@ namespace Tools.AdvancedPrefabLoader
 
                 DrawPrefabSpawnButtons();
             }
+
+            EditorGUILayout.EndScrollView();
         }
 
         private void DrawPrefabSpawnButtons()
@@ -54,10 +58,9 @@ namespace Tools.AdvancedPrefabLoader
             visibleFolders.Clear();
 
             EditorGUILayout.BeginVertical();
-            scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Width(Screen.width), GUILayout.Height(Screen.height - 50));
-
-            GUIStyle buttonStyle = new GUIStyle(GUI.skin.button);
-            buttonStyle.alignment = TextAnchor.MiddleLeft;
+            
+            GUIStyle leftButtonStyle = new GUIStyle(GUI.skin.button);
+            leftButtonStyle.alignment = TextAnchor.MiddleLeft;
 
             Color folderColor = new Color(220f / 255, 220f / 255, 220f / 255);
 
@@ -74,11 +77,28 @@ namespace Tools.AdvancedPrefabLoader
                 {
                     if (IsAssetSpawnable(prefabName))
                     {
-                        if (GUILayout.Button(prefabName.Substring(prefabName.LastIndexOf('/') + 1), buttonStyle, new GUILayoutOption[] { GUILayout.Height(25) }))
+                        GUILayout.BeginHorizontal();
+                        if (GUILayout.Button(prefabName.Substring(prefabName.LastIndexOf('/') + 1), leftButtonStyle, new GUILayoutOption[] { GUILayout.Height(25) }))
                         {
-                            PrefabLoaderState.Instance.SelectedAssetIndex = i;
-                            SpawnSelectedPrefab();
+                            SpawnAssetFromBundle(prefabName, PrefabLoaderState.Instance.SelectedBundlePath);
                         }
+
+                        if (PrefabLoaderState.Instance.IsFavorited(prefabName, PrefabLoaderState.Instance.SelectedBundlePath))
+                        {
+                            if (GUILayout.Button("Unfavorite", new GUILayoutOption[] { GUILayout.Height(25), GUILayout.Width(100) }))
+                            {
+                                PrefabLoaderState.Instance.UnfavoritePrefab(prefabName, PrefabLoaderState.Instance.SelectedBundlePath);
+                            }
+                        }
+                        else
+                        {
+                            if (GUILayout.Button("Favorite", new GUILayoutOption[] { GUILayout.Height(25), GUILayout.Width(100) }))
+                            {
+                                PrefabLoaderState.Instance.FavoritePrefab(prefabName, PrefabLoaderState.Instance.SelectedBundlePath);
+                            }
+                        }
+
+                        GUILayout.EndHorizontal();
                     }
 
                     else
@@ -92,7 +112,7 @@ namespace Tools.AdvancedPrefabLoader
 
                             Color prevColor = GUI.backgroundColor;
                             GUI.backgroundColor = folderColor;
-                            if (GUILayout.Button(folderName + " ->", buttonStyle, new GUILayoutOption[] { GUILayout.Height(25) }))
+                            if (GUILayout.Button(folderName + " ->", leftButtonStyle, new GUILayoutOption[] { GUILayout.Height(25) }))
                             {
                                 PrefabLoaderState.Instance.CurrentAssetPath = folderPath;
                             }
@@ -102,8 +122,40 @@ namespace Tools.AdvancedPrefabLoader
                 }
             }
 
-            EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
+        }
+
+        private void DrawSpawmModeSelector()
+        {
+            PrefabLoaderState.Instance.CurrentSpawnMode = (PrefabLoaderSpawnMode)GUILayout.Toolbar((int)PrefabLoaderState.Instance.CurrentSpawnMode, Enum.GetNames(typeof(PrefabLoaderSpawnMode)));
+        }
+
+
+        private void DrawFavorites()
+        {
+            GUILayout.Label("Favorites");
+
+            GUIStyle leftButtonStyle = new GUIStyle(GUI.skin.button);
+            leftButtonStyle.alignment = TextAnchor.MiddleLeft;
+
+            for(int i = 0; i < PrefabLoaderState.Instance.Favorites.Count(); i++)
+            {
+                FavoritedAsset favorite = PrefabLoaderState.Instance.Favorites[i];
+
+                GUILayout.BeginHorizontal();
+
+                if (GUILayout.Button(favorite.AssetName.Substring(favorite.AssetName.LastIndexOf('/') + 1), leftButtonStyle, new GUILayoutOption[] { GUILayout.Height(25) }))
+                {
+                    SpawnAssetFromBundle(favorite.AssetName, favorite.AssetBundlePath);
+                }
+                if (GUILayout.Button("Unfavorite", new GUILayoutOption[] { GUILayout.Height(25), GUILayout.Width(100) }))
+                {
+                    PrefabLoaderState.Instance.UnfavoritePrefab(favorite.AssetName, favorite.AssetBundlePath);
+                    i -= 1;
+                }
+
+                GUILayout.EndHorizontal();
+            }
         }
 
         private bool IsAssetSpawnable(string prefabName)
@@ -133,11 +185,11 @@ namespace Tools.AdvancedPrefabLoader
             }
         }
 
-        private void SpawnSelectedPrefab()
+        private void SpawnAssetFromBundle(string assetName, string bundlePath)
         {
-            AssetBundle _bundle = AssetBundle.LoadFromFile(PrefabLoaderState.Instance.SelectedBundlePath);
+            AssetBundle _bundle = AssetBundle.LoadFromFile(bundlePath);
 
-            UnityEngine.Object spawned = Instantiate(_bundle.LoadAsset(PrefabLoaderState.Instance.GetSelectedAssetName()));
+            UnityEngine.Object spawned = Instantiate(_bundle.LoadAsset(assetName));
 
             _bundle.Unload(false);
 

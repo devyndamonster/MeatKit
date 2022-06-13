@@ -16,16 +16,16 @@ namespace Tools.AdvancedPrefabLoader
         private string[] _assetNames = new string[0];
 
         [SerializeField]
-        private int _selectedAssetIndex;
-
-        [SerializeField]
         private string _currentAssetPath;
 
         [SerializeField]
         private PrefabLoaderSpawnMode _currentSpawnMode;
 
-        public string SelectedBundlePath 
-        { 
+        [SerializeField]
+        public List<FavoritedAsset> Favorites = new List<FavoritedAsset>();
+
+        public string SelectedBundlePath
+        {
             get { return _selectedBundlePath; }
         }
 
@@ -34,18 +34,6 @@ namespace Tools.AdvancedPrefabLoader
             get { return _assetNames; }
         }
 
-        public int SelectedAssetIndex 
-        {
-            get { return _selectedAssetIndex; }
-            set 
-            { 
-                if(_selectedAssetIndex != value)
-                {
-                    _selectedAssetIndex = value;
-                    WriteStateToCache(this);
-                }
-            }
-        }
 
         public string CurrentAssetPath
         {
@@ -101,7 +89,7 @@ namespace Tools.AdvancedPrefabLoader
                 {
                     _instance = ReadStateFromCache();
                 }
-                
+
                 return _instance;
             }
         }
@@ -130,15 +118,25 @@ namespace Tools.AdvancedPrefabLoader
             _selectedBundlePath = bundlePath;
             _assetNames = assetNames.OrderByDescending(o => o.Count(sub => sub == '/')).ToArray();
             _currentAssetPath = "";
-            _selectedAssetIndex = 0;
             WriteStateToCache(this);
         }
 
-        public string GetSelectedAssetName()
+        public void FavoritePrefab(string prefabName, string bundlePath)
         {
-            return _assetNames[_selectedAssetIndex];
+            Favorites.Add(new FavoritedAsset() { AssetBundlePath = bundlePath, AssetName = prefabName });
+            WriteStateToCache(this);
         }
 
+        public void UnfavoritePrefab(string prefabName, string bundlePath)
+        {
+            Favorites.RemoveAll(o => o.AssetBundlePath == bundlePath && o.AssetName == prefabName);
+            WriteStateToCache(this);
+        }
+
+        public bool IsFavorited(string prefabName, string bundlePath)
+        {
+            return PrefabLoaderState.Instance.Favorites.Any(o => o.AssetName == prefabName && o.AssetBundlePath == bundlePath);
+        }
     }
 
     public enum PrefabLoaderSpawnMode
