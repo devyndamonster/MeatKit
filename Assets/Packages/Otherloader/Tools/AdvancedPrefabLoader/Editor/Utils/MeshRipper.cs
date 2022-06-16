@@ -15,8 +15,11 @@ public static class MeshRipper
             {
                 string meshPath = outputFolderPath + "/" + meshFilter.sharedMesh.name + ".asset";
 
-                if (string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(meshPath)))
+                Debug.Log("Mesh: " + meshFilter.sharedMesh.name);
+
+                if (AssetDatabase.LoadAssetAtPath<Mesh>(meshPath) == null)
                 {
+                    Debug.Log("Mesh does not exist!");
                     Mesh copiedMesh = CopyMesh(meshFilter.sharedMesh);
                     AssetDatabase.CreateAsset(copiedMesh, meshPath);
                     AssetDatabase.Refresh();
