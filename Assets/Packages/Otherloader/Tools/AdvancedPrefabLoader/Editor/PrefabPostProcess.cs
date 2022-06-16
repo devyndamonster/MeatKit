@@ -23,7 +23,7 @@ public class PrefabPostProcess
 
     public static void ProcessSpawnedObject(GameObject spawned)
     {
-        if (PrefabLoaderState.Instance.RipMeshes)
+        if (PrefabLoaderState.Instance.BundleRipMeshes)
         {
             string scenePath = EditorSceneManager.GetActiveScene().path;
             string sceneFolderPath = scenePath.Substring(0, scenePath.LastIndexOf('/'));
