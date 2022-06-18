@@ -7,58 +7,73 @@ using UnityEngine;
 using Valve.Newtonsoft;
 using Valve.Newtonsoft.Json;
 
-public static class GameRipView{
+public static class GameRipView {
+
+    private static PrefabLoaderGameRipState _state;
+
+    private static void InitState()
+    {
+        if (_state == null)
+        {
+            string fileName = "PrefabLoaderGameRipState.json";
+            if (File.Exists(SaveState.GetStateFilePath(fileName)))
+            {
+                _state = SaveState.LoadStateFromFile<PrefabLoaderGameRipState>(fileName);
+            }
+            else
+            {
+                _state = new PrefabLoaderGameRipState(fileName);
+            }
+        }
+    }
 
     public static void Draw()
     {
+        InitState();
+
         if (GUILayout.Button("Select Select Game Rip", new GUILayoutOption[] { GUILayout.Height(35) }))
         {
             SelectNewGameRipFolder();
         }
 
-        if (!string.IsNullOrEmpty(PrefabLoaderState.Instance.GameSelectedPath))
+        if (!string.IsNullOrEmpty(_state.SelectedPath))
         {
-            GUILayout.Label("Selected Game Rip Folder : " + PrefabLoaderState.Instance.GameSelectedPath);
+            GUILayout.Label("Selected Game Rip Folder : " + _state.SelectedPath);
         }
     }
 
     private static void SelectNewGameRipFolder()
     {
-        string previousGameRipFolder = PrefabLoaderState.Instance.GameSelectedPath;
+        string previousGameRipFolder = _state.SelectedPath;
         string gameRipPath = EditorUtility.OpenFolderPanel("Select Game Rip Folder", previousGameRipFolder, string.Empty);
+
+        Debug.Log("Selected path: " + gameRipPath);
 
         if (!string.IsNullOrEmpty(gameRipPath))
         {
-            if(PrefabLoaderState.Instance.GameSelectedPath != gameRipPath)
+            if(_state.SelectedPath != gameRipPath)
             {
-                GameRipFileIndex gameRipFileIndex = CreateFileIndexForGameRip(gameRipPath);
-                WriteGameRipIndexToFile(gameRipFileIndex);
+                PopulateFileIndexesForFolder(gameRipPath);
             }
 
-            PrefabLoaderState.Instance.GameSelectedPath = gameRipPath;
+            _state.SelectedPath = gameRipPath;
         }
     }
 
-    private static GameRipFileIndex CreateFileIndexForGameRip(string gameRipPath)
-    {
-        GameRipFileIndex gameRipFileIndex = new GameRipFileIndex();
-        PopulateFileIndexesForFolder(gameRipPath, gameRipFileIndex);
-        return gameRipFileIndex;
-    }
 
-    private static void PopulateFileIndexesForFolder(string folderPath, GameRipFileIndex gameRipFileIndex)
+    private static void PopulateFileIndexesForFolder(string folderPath)
     {
         Debug.Log("Populating indexes for folder: " + folderPath);
         foreach(string dir in Directory.GetDirectories(folderPath))
         {
-            PopulateFileIndexesForFolder(dir, gameRipFileIndex);
+            PopulateFileIndexesForFolder(dir);
         }
 
         foreach(string metaFile in Directory.GetFiles(folderPath, "*.meta"))
         {
             string guid = GetGUIDFromMetaFile(metaFile);
             string realFile = metaFile.Replace(".meta", "");
-            gameRipFileIndex.GUIDToFilePath[guid] = realFile;
+            _state.GUIDToFilePath[guid] = realFile;
         }
     }
 
@@ -66,18 +81,6 @@ public static class GameRipView{
     {
         string[] lines = File.ReadAllLines(filePath);
         return lines.FirstOrDefault(o => o.Contains("guid: ")).Replace("guid: ", "").Trim();
-    }
-
-    private static void WriteGameRipIndexToFile(GameRipFileIndex fileIndex)
-    {
-        string filePath = GetGameRipFileIndexPath();
-        string fileJson = JsonConvert.SerializeObject(fileIndex);
-        File.WriteAllText(filePath, fileJson);
-    }
-
-    private static string GetGameRipFileIndexPath()
-    {
-        return Path.Combine(Path.GetDirectoryName(Application.dataPath), "GameRipFileIndex.json");
     }
 
 }

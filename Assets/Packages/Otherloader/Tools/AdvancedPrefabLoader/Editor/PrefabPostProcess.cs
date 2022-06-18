@@ -21,9 +21,9 @@ public class PrefabPostProcess
         return localIdProp.intValue;
     }
 
-    public static void ProcessSpawnedObject(GameObject spawned)
+    public static void ProcessSpawnedObject(GameObject spawned, PrefabLoaderAssetBundleState _state)
     {
-        if (PrefabLoaderState.Instance.BundleRipMeshes)
+        if (_state.RipMeshes)
         {
             string scenePath = EditorSceneManager.GetActiveScene().path;
             string sceneFolderPath = scenePath.Substring(0, scenePath.LastIndexOf('/'));
