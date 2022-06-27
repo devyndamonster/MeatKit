@@ -33,8 +33,7 @@ public class GunRipperWindow : EditorWindow
 
 		if (string.IsNullOrEmpty(ExportPath)) ExportPath = "Assets/Packages/Otherloader/Tools/GunRipper/Export";
 		ExportPath = EditorGUILayout.TextField(ExportPath);
-		CreateExportFolder(ExportPath);
-
+		
 		if (!SelectedGameObject)
 		{
 			GUILayout.Label("Please select a game object");
@@ -50,18 +49,21 @@ public class GunRipperWindow : EditorWindow
 		if (firearmComp != null && firearmComp.AudioClipSet != null && GUILayout.Button("Rip Firearm Audio"))
 		{
 			Debug.Log("Ripping Audio!");
+			CreateExportFolder(ExportPath);
 			RipAudio(firearmComp.AudioClipSet, "AudioSet");
 		}
 
 		if (magazineComp != null && magazineComp.Profile != null && GUILayout.Button("Rip Magazine Audio"))
 		{
 			Debug.Log("Ripping Audio!");
+			CreateExportFolder(ExportPath);
 			RipAudio(magazineComp.Profile, "AudioSet");
 		}
 
 		if(attachment != null && (attachment.AudClipAttach != null || attachment.AudClipDettach != null) && GUILayout.Button("Rip Attachment Audio"))
         {
-			if(attachment.AudClipAttach != null)
+			CreateExportFolder(ExportPath);
+			if (attachment.AudClipAttach != null)
             {
 				Debug.Log("Ripping Audio!");
 				RipAudio(attachment.AudClipAttach, "AudioAttach");
@@ -76,7 +78,8 @@ public class GunRipperWindow : EditorWindow
 
 		if (firearmComp != null && (firearmComp.RecoilProfile != null || firearmComp.RecoilProfileStocked != null) && GUILayout.Button("Rip Firearm Recoil"))
 		{
-			if(firearmComp.RecoilProfile != null)
+			CreateExportFolder(ExportPath);
+			if (firearmComp.RecoilProfile != null)
             {
 				Debug.Log("Ripping Stockless Recoil!");
 				RipRecoil(firearmComp.RecoilProfile, "Recoil");
@@ -88,8 +91,6 @@ public class GunRipperWindow : EditorWindow
 				RipRecoil(firearmComp.RecoilProfileStocked, "RecoilStocked");
 			}
 		}
-
-
 	}
 
 

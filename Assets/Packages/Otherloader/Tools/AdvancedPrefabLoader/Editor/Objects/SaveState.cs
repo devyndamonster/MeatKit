@@ -22,7 +22,6 @@ public class SaveState {
 
     protected void Save()
     {
-        Debug.Log("Saving?");
         WriteStateToFile(this, _fileName);
     }
 
