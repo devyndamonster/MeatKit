@@ -7,7 +7,6 @@ using FistVR;
 using HarmonyLib;
 using System.Reflection;
 using System.Linq;
-using AssetsTools.NET.Extra;
 using System.Collections.Generic;
 
 
