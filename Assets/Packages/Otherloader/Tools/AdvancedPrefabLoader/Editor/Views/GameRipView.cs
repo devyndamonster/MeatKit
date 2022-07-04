@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using Valve.Newtonsoft;
 using Valve.Newtonsoft.Json;
@@ -164,10 +165,12 @@ public static class GameRipView {
     private static void LoadPrefab(string path)
     {
         Debug.Log("Loading Prefab");
-
         List<SerializedUnityElement> elements = GetElementsFromPrefab(path);
-        Dictionary<string, SerializedUnityElement> fileIdToElement = new Dictionary<string, SerializedUnityElement>();
 
+        //Get all images needed
+        LoadAllSpritesUsedByPrefab(elements);
+
+        /*
         for(int i = 0; i < elements.Count; i++)
         {
             SerializedUnityElement element = elements[i];
@@ -197,11 +200,45 @@ public static class GameRipView {
             }
 
             element.ConvertFromPrefab();
-            fileIdToElement[element.GetFileID()] = element;
         }
 
         CorrectElementFileIDs(elements, elements.First());
         PrefabPostProcess.AddUnityElementsToScene(elements);
+        */
+    }
+
+    private static void LoadAllSpritesUsedByPrefab(List<SerializedUnityElement> elements)
+    {
+        foreach(SerializedUnityElement element in elements)
+        {
+            if (element.HasValue("m_Sprite"))
+            {
+                string spriteMeta = element.GetValue("m_Sprite");
+                Debug.Log("Sprite meta: " + spriteMeta);
+                string spriteGUID = spriteMeta.Split(',')[1].Replace("guid:", "").Trim();
+
+                string imagePath = _state.GUIDToFilePath[spriteGUID];
+                Debug.Log("Image Path: " + imagePath);
+
+                string imageName = Path.GetFileName(imagePath);
+                string scenePath = EditorSceneManager.GetActiveScene().path;
+                string sceneFolderPath = scenePath.Substring(0, scenePath.LastIndexOf('/'));
+                string textureFolderPath = sceneFolderPath + "/" + "Textures";
+                if (!AssetDatabase.IsValidFolder(textureFolderPath)) AssetDatabase.CreateFolder(sceneFolderPath, "Textures");
+
+                string copyImagePath = GetRealFilePathFromAssetPath(textureFolderPath + "/" + imageName);
+                Debug.Log("Copied image path: " + copyImagePath);
+                byte[] bytes = File.ReadAllBytes(imagePath);
+                File.WriteAllBytes(copyImagePath, bytes);
+
+            }
+        }
+    }
+
+    private static string GetRealFilePathFromAssetPath(string assetPath)
+    {
+        string realFilePath = Application.dataPath + assetPath.Replace("Assets", "");
+        return realFilePath;
     }
 
 

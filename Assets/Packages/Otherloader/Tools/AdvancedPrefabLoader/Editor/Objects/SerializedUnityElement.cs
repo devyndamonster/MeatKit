@@ -31,6 +31,16 @@ public class SerializedUnityElement {
 			.Trim();
     }
 
+	public string GetValue(string field)
+    {
+		return elementLines.FirstOrDefault(o => o.Contains(field + ":")).Replace(field + ":", "").Trim();
+    }
+
+	public bool HasValue(string field)
+    {
+		return elementLines.Any(o => o.Contains(field + ":"));
+    }
+
 	public void PatchScriptReference(Type scriptType)
     {
         if (PrefabPostProcess.DoesObjectHaveManagedDLL(scriptType))
