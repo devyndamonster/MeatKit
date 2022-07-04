@@ -37,6 +37,33 @@ public class PrefabPostProcess
         PatchSceneFile(scriptReferences);
     }
 
+    public static void AddUnityElementsToScene(List<SerializedUnityElement> elements)
+    {
+        Debug.Log("Adding unity elements to Scene!");
+        SaveScene();
+
+        List<string> fileLines = File.ReadAllLines(GetSceneFilePath()).ToList();
+
+        foreach(SerializedUnityElement element in elements)
+        {
+            Debug.Log("Adding element: " + element.GetElementType());
+            fileLines.AddRange(element.elementLines);
+        }
+
+        UnityEngine.SceneManagement.Scene currentScene = EditorSceneManager.GetActiveScene();
+        string sceneFilePath = GetSceneFilePath();
+        string sceneAssetPath = currentScene.path;
+
+        UnityEngine.SceneManagement.Scene tempScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
+        EditorSceneManager.SaveScene(tempScene, "tempScene.unity");
+        EditorSceneManager.OpenScene(tempScene.path);
+
+        File.WriteAllLines(sceneFilePath, fileLines.ToArray());
+
+        EditorSceneManager.OpenScene(sceneAssetPath);
+        SaveScene();
+    }
+
 
     public static Dictionary<int, string> GetMonoBehaviorScriptReferenceDict(GameObject spawned)
     {
@@ -44,10 +71,10 @@ public class PrefabPostProcess
 
         foreach (var component in spawned.GetComponentsInChildren<MonoBehaviour>())
         {
-            if (DoesObjectHaveManagedDLL(component))
+            if (DoesObjectHaveManagedDLL(component.GetType()))
             {
                 int fileID = GetFileIDForObject(component);
-                string scriptReference = GetScriptMetaTag(component);
+                string scriptReference = GetScriptMetaTag(component.GetType());
                 scriptReferenceDict[fileID] = scriptReference;
             }
         }
@@ -66,36 +93,68 @@ public class PrefabPostProcess
         return Path.Combine(Path.GetDirectoryName(Application.dataPath), EditorSceneManager.GetActiveScene().path);
     }
 
-    public static string GetAssemblyNameForObject(UnityEngine.Object targetObject)
+    public static string GetScriptMetaTag(Type type)
     {
-        return targetObject.GetType().Assembly.GetName().Name;
-    }
-
-    public static string GetScriptMetaTag(UnityEngine.Object targetObject)
-    {
-        string metadata = 
+        string metadata =
             "{fileID: " +
-            FileIDUtil.Compute(targetObject.GetType()).ToString() + 
+            FileIDUtil.Compute(type).ToString() +
             ", guid: " +
-            GetAssemblyGUIDForObject(targetObject) +
+            GetAssemblyGUIDFromType(type) +
             ", type: 3}";
 
         return metadata;
     }
 
-    public static bool DoesObjectHaveManagedDLL(UnityEngine.Object targetObject)
+    public static string GetAssemblyNameFromType(Type type)
     {
-        return !string.IsNullOrEmpty(GetAssemblyGUIDForObject(targetObject));
+        return type.Assembly.GetName().Name;
     }
 
-    public static string GetAssemblyPathForObject(UnityEngine.Object targetObject)
+    public static bool DoesObjectHaveManagedDLL(Type type)
     {
-        return "Assets/MeatKit/Managed/" + GetAssemblyNameForObject(targetObject) + ".dll";
+        return !string.IsNullOrEmpty(GetAssemblyGUIDFromType(type));
     }
 
-    public static string GetAssemblyGUIDForObject(UnityEngine.Object targetObject)
+    public static string GetAssemblyPathFromType(Type type)
     {
-        return AssetDatabase.AssetPathToGUID(GetAssemblyPathForObject(targetObject));
+        return "Assets/MeatKit/Managed/" + GetAssemblyNameFromType(type) + ".dll";
+    }
+
+    public static string GetAssemblyGUIDFromType(Type type)
+    {
+        return AssetDatabase.AssetPathToGUID(GetAssemblyPathFromType(type));
+    }
+
+    public static Assembly GetAssemblyFromTypeName(string typeName)
+    {
+        foreach(Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            foreach(Type type in assembly.GetTypes())
+            {
+                if (type.Name.Contains(typeName))
+                {
+                    return assembly;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public static Type GetTypeFromName(string typeName)
+    {
+        foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            foreach (Type type in assembly.GetTypes())
+            {
+                if (type.Name.Contains(typeName))
+                {
+                    return type;
+                }
+            }
+        }
+
+        return null;
     }
 
     public static void PatchSceneFile(Dictionary<int, string> scriptReferences)

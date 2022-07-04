@@ -44,7 +44,7 @@ public class AdvancedPrefabLoader : EditorWindow
 
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Width(Screen.width), GUILayout.Height(Screen.height - 50));
 
-        //DrawFileModeSelector();
+        DrawFileModeSelector();
 
         if(_state.PrefabLoaderFileMode == PrefabLoaderFileType.AssetBundle)
         {
