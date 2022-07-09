@@ -167,34 +167,29 @@ public static class GameRipView {
         Debug.Log("Loading Prefab");
         List<SerializedUnityElement> elements = GetElementsFromPrefab(path);
 
-        //Get all images needed
-        LoadAllSpritesUsedByPrefab(elements);
-
-        /*
-        for(int i = 0; i < elements.Count; i++)
+        for (int i = 0; i < elements.Count; i++)
         {
             SerializedUnityElement element = elements[i];
             string elementType = element.GetElementType();
 
+            Debug.Log("Loading element type: " + elementType);
+
+            //If this is a prefab element, remove it (since element is being added to scene)
             if (elementType == "Prefab")
             {
-                Debug.Log("Removing prefab instance");
                 elements.RemoveAt(i);
                 i -= 1;
                 continue;
             }
 
+            //If this is a monobehaviour we must patch the script references
             else if (elementType == "MonoBehaviour")
             {
-                Debug.Log("Guid: " + element.GetScriptGUID());
-                string scriptGUID = element.GetScriptGUID();
+                string scriptGUID = element.GetValueFromStruct(element.GetValue("m_Script"), "guid");
                 if (_state.GUIDToFilePath.ContainsKey(scriptGUID))
                 {
-                    string scriptName = Path.GetFileNameWithoutExtension(_state.GUIDToFilePath[element.GetScriptGUID()]);
-                    Debug.Log("Script Name: " + scriptName);
-
+                    string scriptName = Path.GetFileNameWithoutExtension(_state.GUIDToFilePath[scriptGUID]);
                     Type type = PrefabPostProcess.GetTypeFromName(scriptName);
-                    Debug.Log("Script Type: " + type);
                     element.PatchScriptReference(type);
                 }
             }
@@ -202,37 +197,84 @@ public static class GameRipView {
             element.ConvertFromPrefab();
         }
 
-        CorrectElementFileIDs(elements, elements.First());
-        PrefabPostProcess.AddUnityElementsToScene(elements);
-        */
-    }
+        //Get all dependancy elements and load them
+        List<string> dependancyGUIDs = GetAllDependanciesFromElements(elements).Where(guid => _state.GUIDToFilePath.ContainsKey(guid)).ToList();
 
-    private static void LoadAllSpritesUsedByPrefab(List<SerializedUnityElement> elements)
-    {
-        foreach(SerializedUnityElement element in elements)
+        //Load any assets this prefab depends on
+        foreach (string dependancyGUID in dependancyGUIDs)
         {
-            if (element.HasValue("m_Sprite"))
+            Debug.Log("Dependancy guid: " + dependancyGUID);
+            Debug.Log("Dependancy path: " + _state.GUIDToFilePath[dependancyGUID]);
+
+            foreach(SerializedUnityElement element in elements)
             {
-                string spriteMeta = element.GetValue("m_Sprite");
-                Debug.Log("Sprite meta: " + spriteMeta);
-                string spriteGUID = spriteMeta.Split(',')[1].Replace("guid:", "").Trim();
-
-                string imagePath = _state.GUIDToFilePath[spriteGUID];
-                Debug.Log("Image Path: " + imagePath);
-
-                string imageName = Path.GetFileName(imagePath);
-                string scenePath = EditorSceneManager.GetActiveScene().path;
-                string sceneFolderPath = scenePath.Substring(0, scenePath.LastIndexOf('/'));
-                string textureFolderPath = sceneFolderPath + "/" + "Textures";
-                if (!AssetDatabase.IsValidFolder(textureFolderPath)) AssetDatabase.CreateFolder(sceneFolderPath, "Textures");
-
-                string copyImagePath = GetRealFilePathFromAssetPath(textureFolderPath + "/" + imageName);
-                Debug.Log("Copied image path: " + copyImagePath);
-                byte[] bytes = File.ReadAllBytes(imagePath);
-                File.WriteAllBytes(copyImagePath, bytes);
-
+                if(element.elementLines.Any(line => line.Contains(dependancyGUID)))
+                {
+                    string newGUID = LoadAssetFromGUID(dependancyGUID);
+                    element.ReplaceText(dependancyGUID, newGUID);
+                }
             }
         }
+
+        CorrectElementFileIDs(elements, elements.First());
+        PrefabPostProcess.AddUnityElementsToScene(elements);
+    }
+
+
+    private static List<string> GetAllDependanciesFromElements(List<SerializedUnityElement> elements)
+    {
+        List<string> dependancies = new List<string>();
+
+        foreach (SerializedUnityElement element in elements)
+        {
+            foreach(string guid in element.GetDependancyGUIDs())
+            {
+                if (!dependancies.Contains(guid))
+                {
+                    dependancies.Add(guid);
+                }
+            }
+        }
+
+        return dependancies;
+    }
+
+    private static string LoadAssetFromGUID(string guid)
+    {
+        string assetPath = _state.GUIDToFilePath[guid];
+
+        if (assetPath.EndsWith(".png")) return LoadSprite(assetPath);
+
+
+
+        if (assetPath.EndsWith(".asset"))
+        {
+
+        }
+
+        return guid;
+    }
+
+    private static string LoadSprite(string originalFilePath)
+    {
+        string imageName = Path.GetFileName(originalFilePath);
+        string sceneAssetPath = EditorSceneManager.GetActiveScene().path;
+        string sceneFolderPath = sceneAssetPath.Substring(0, sceneAssetPath.LastIndexOf('/'));
+        string textureFolderPath = sceneFolderPath + "/" + "Textures";
+        string copyAssetPath = textureFolderPath + "/" + imageName;
+        string copyFilePath = GetRealFilePathFromAssetPath(copyAssetPath);
+
+        if (!AssetDatabase.IsValidFolder(textureFolderPath)) AssetDatabase.CreateFolder(sceneFolderPath, "Textures");
+
+        if (AssetDatabase.LoadAssetAtPath<Texture2D>(copyAssetPath) != null) return AssetDatabase.AssetPathToGUID(copyAssetPath);
+
+        byte[] bytes = File.ReadAllBytes(originalFilePath);
+        File.WriteAllBytes(copyFilePath, bytes);
+
+        AssetDatabase.ImportAsset(copyAssetPath, ImportAssetOptions.ForceUpdate);
+        AssetDatabase.Refresh();
+
+        return AssetDatabase.AssetPathToGUID(copyAssetPath);
     }
 
     private static string GetRealFilePathFromAssetPath(string assetPath)

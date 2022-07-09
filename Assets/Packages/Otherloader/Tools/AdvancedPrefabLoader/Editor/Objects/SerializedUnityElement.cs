@@ -33,13 +33,50 @@ public class SerializedUnityElement {
 
 	public string GetValue(string field)
     {
-		return elementLines.FirstOrDefault(o => o.Contains(field + ":")).Replace(field + ":", "").Trim();
+		return GetValueFromLine(elementLines.FirstOrDefault(o => o.Contains(field + ":")));
     }
 
 	public bool HasValue(string field)
     {
 		return elementLines.Any(o => o.Contains(field + ":"));
     }
+
+	public List<string> GetDependancyGUIDs()
+    {
+		List<string> dependancyGUIDs = new List<string>();
+
+		foreach(string line in elementLines)
+        {
+            if (line.Contains("guid:"))
+            {
+				dependancyGUIDs.Add(GetValueFromStruct(GetValueFromLine(line), "guid"));
+            }
+        }
+
+		return dependancyGUIDs;
+    }
+
+	public string GetValueFromLine(string line)
+    {
+		if (!line.Contains(":")) throw new ArgumentException("Line argument must be line with value");
+
+		return line.Substring(line.IndexOf(":") + 1).Trim();
+    }
+
+	public string GetValueFromStruct(string structValue, string field)
+    {
+		if (!structValue.Contains(field + ":")) throw new ArgumentException("Struct value argument does not have field: " + field);
+
+		string targetField = structValue
+			.Replace("{", "")
+			.Replace("}", "")
+			.Split(',')
+			.First(value => value.Contains(field + ":"));
+
+		return GetValueFromLine(targetField);
+    }
+
+
 
 	public void PatchScriptReference(Type scriptType)
     {
@@ -65,6 +102,14 @@ public class SerializedUnityElement {
 		elementLines.Insert(2, "  m_PrefabParentObject: {fileID: 0}");
 		elementLines.Insert(2, "  m_ObjectHideFlags: 0");
 	}
+
+	public void ReplaceText(string originalText, string newText)
+    {
+		for(int i = 0; i < elementLines.Count; i++)
+        {
+			elementLines[i] = elementLines[i].Replace(originalText, newText);
+        }
+    }
 
 	public void ReplaceFileIds(string originalFileId, string newFileId)
     {
