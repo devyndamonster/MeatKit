@@ -56,10 +56,10 @@ public class TextureToolsWindow : EditorWindow
 		string pathWithoutExtension = assetPath.Replace(extension, "");
 		string newAssetPath = pathWithoutExtension + "_openGL" + extension;
 
-		Texture2D texture = LoadTextureFromPath(GetRealFilePathFromAssetPath(assetPath));
+		Texture2D texture = TextureUtils.LoadTextureFromPath(AssetUtils.GetRealFilePathFromAssetPath(assetPath));
 		texture = InvertGreenChannel(texture);
-		WriteTextureToAssets(newAssetPath, texture);
-		ImportTexture(newAssetPath, GetTextureSettings(assetPath));
+		TextureUtils.WriteTextureToAssets(newAssetPath, texture);
+		TextureUtils.ImportTexture(newAssetPath, TextureUtils.GetTextureSettings(assetPath));
 	}
 
 	private void CalculateBlueChannelNormals()
@@ -69,40 +69,11 @@ public class TextureToolsWindow : EditorWindow
 		string pathWithoutExtension = assetPath.Replace(extension, "");
 		string newAssetPath = pathWithoutExtension + "_withBlue" + extension;
 
-		Texture2D texture = LoadTextureFromPath(GetRealFilePathFromAssetPath(assetPath));
+		Texture2D texture = TextureUtils.LoadTextureFromPath(AssetUtils.GetRealFilePathFromAssetPath(assetPath));
 		texture = CalculatedBlueChannel(texture);
-		WriteTextureToAssets(newAssetPath, texture);
-		ImportTexture(newAssetPath, GetTextureSettings(assetPath));
+		TextureUtils.WriteTextureToAssets(newAssetPath, texture);
+		TextureUtils.ImportTexture(newAssetPath, TextureUtils.GetTextureSettings(assetPath));
 	}
-
-
-	private void ImportTexture(string assetPath, TextureImporterSettings settings)
-	{
-		TextureImporter importer = (TextureImporter)TextureImporter.GetAtPath(assetPath);
-		importer.SetTextureSettings(settings);
-		importer.SaveAndReimport();
-	}
-
-	private TextureImporterSettings GetTextureSettings(string assetPath)
-	{
-		TextureImporter importer = (TextureImporter)TextureImporter.GetAtPath(assetPath);
-		TextureImporterSettings settings = new TextureImporterSettings();
-		importer.ReadTextureSettings(settings);
-		return settings;
-	}
-
-	private void WriteTextureToAssets(string assetPath, Texture2D texture)
-	{
-		string realFilePath = GetRealFilePathFromAssetPath(assetPath);
-
-		byte[] bytes = texture.EncodeToPNG();
-		File.WriteAllBytes(realFilePath, bytes);
-
-		AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
-		AssetDatabase.Refresh();
-	}
-
-
 
 	private Texture2D InvertGreenChannel(Texture2D inputNormal)
 	{
@@ -140,29 +111,6 @@ public class TextureToolsWindow : EditorWindow
 		normalInput.Apply();
 		return normalInput;
 	}
-
-	private string GetRealFilePathFromAssetPath(string assetPath)
-	{
-		Debug.Log(assetPath);
-		string realFilePath = Application.dataPath + assetPath.Replace("Assets", "");
-		Debug.Log(realFilePath);
-		return realFilePath;
-	}
-
-	private Texture2D LoadTextureFromPath(string filePath)
-	{
-		Texture2D tex = null;
-		byte[] fileData;
-
-		if (File.Exists(filePath))
-		{
-			fileData = File.ReadAllBytes(filePath);
-			tex = new Texture2D(2, 2);
-			tex.LoadImage(fileData);
-		}
-		return tex;
-	}
-
 
 #endif
 }

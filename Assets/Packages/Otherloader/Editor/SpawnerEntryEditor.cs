@@ -11,7 +11,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-
+[CanEditMultipleObjects]
 [CustomEditor(typeof(OtherLoader.ItemSpawnerEntry), true)]
 public class SpawnerEntryEditor : Editor
 {

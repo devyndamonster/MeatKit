@@ -24,6 +24,9 @@ public class PrefabLoaderAssetBundleState : SaveState
     [JsonProperty]
     private bool _ripMeshes;
 
+    [JsonProperty]
+    private bool _ripSprites;
+
     [JsonIgnore]
     public string SelectedPath
     {
@@ -73,6 +76,20 @@ public class PrefabLoaderAssetBundleState : SaveState
             if (_ripMeshes != value)
             {
                 _ripMeshes = value;
+                Save();
+            }
+        }
+    }
+
+    [JsonIgnore]
+    public bool RipSprites
+    {
+        get { return _ripSprites; }
+        set
+        {
+            if (_ripSprites != value)
+            {
+                _ripSprites = value;
                 Save();
             }
         }

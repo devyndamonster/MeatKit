@@ -165,10 +165,13 @@ public static class GameRipView {
     private static void LoadPrefab(string path)
     {
         Debug.Log("Loading Prefab");
+        EditorUtility.DisplayProgressBar("Loading Prefab", "Start", 0);
         List<SerializedUnityElement> elements = GetElementsFromPrefab(path);
 
         for (int i = 0; i < elements.Count; i++)
         {
+            EditorUtility.DisplayProgressBar("Loading Prefab", "Processing Element : " + i + " / " + elements.Count, (i / elements.Count) / 2);
+
             SerializedUnityElement element = elements[i];
             string elementType = element.GetElementType();
 
@@ -198,14 +201,20 @@ public static class GameRipView {
         }
 
         //Get all dependancy elements and load them
+        EditorUtility.DisplayProgressBar("Loading Prefab", "Loading Dependancies", .5f);
         List<string> dependancyGUIDs = GetAllDependanciesFromElements(elements).Where(guid => _state.GUIDToFilePath.ContainsKey(guid)).ToList();
 
         //Load any assets this prefab depends on
-        foreach (string dependancyGUID in dependancyGUIDs)
+        for(int i = 0; i < dependancyGUIDs.Count; i++)
         {
+            string dependancyGUID = dependancyGUIDs[i];
+
             Debug.Log("Dependancy guid: " + dependancyGUID);
             Debug.Log("Dependancy path: " + _state.GUIDToFilePath[dependancyGUID]);
 
+            EditorUtility.DisplayProgressBar("Loading Prefab", "Patching Dependancy : " + _state.GUIDToFilePath[dependancyGUID], 0.5f + (i / dependancyGUIDs.Count / 2));
+
+            /*
             foreach(SerializedUnityElement element in elements)
             {
                 if(element.elementLines.Any(line => line.Contains(dependancyGUID)))
@@ -214,10 +223,16 @@ public static class GameRipView {
                     element.ReplaceText(dependancyGUID, newGUID);
                 }
             }
+            */
         }
 
+        EditorUtility.DisplayProgressBar("Loading Prefab", "Correcting File Ids", 1);
         CorrectElementFileIDs(elements, elements.First());
+
+        EditorUtility.DisplayProgressBar("Loading Prefab", "Adding elements to scene", 1);
         PrefabPostProcess.AddUnityElementsToScene(elements);
+
+        EditorUtility.ClearProgressBar();
     }
 
 
@@ -284,8 +299,61 @@ public static class GameRipView {
     }
 
 
+    /// <summary>
+    /// Maps original fileIDs to new fileIDs
+    /// </summary>
+    /// <param name="elements"></param>
+    /// <param name="rootGameObject"></param>
+    /// <returns></returns>
+    private static Dictionary<string, string> GetFileIDCorrectionMap(List<SerializedUnityElement> elements, SerializedUnityElement rootGameObject)
+    {
+        Dictionary<string, string> fileIdCorrectionMap = new Dictionary<string, string>();
+
+        return GetFileIDCorrectionMap(elements, rootGameObject, fileIdCorrectionMap);
+    }
+
+    private static Dictionary<string, string> GetFileIDCorrectionMap(List<SerializedUnityElement> elements, SerializedUnityElement gameObjectElement, Dictionary<string, string> currentDictionary)
+    {
+        int newFileId = UnityEngine.Random.Range(1000, int.MaxValue - 1000);
+        string gameObjectFileId = gameObjectElement.GetFileID();
+        string transformFileId = "";
+
+        currentDictionary[gameObjectFileId] = newFileId.ToString();
+
+        List<string> componentFileIds = gameObjectElement.GetComponentFileIds();
+        for (int i = 0; i < componentFileIds.Count; i++)
+        {
+            //EditorUtility.DisplayProgressBar("Loading Prefab", "Correcting File Ids for components on parent object : " + i + " / " + componentFileIds.Count, componentFileIds.Count / i);
+            string componentFileId = componentFileIds[i];
+
+            //Get component from component file ID
+            SerializedUnityElement component = elements.FirstOrDefault(o => o.GetFileID() == componentFileId);
+            newFileId += 1;
+
+            currentDictionary[componentFileId] = newFileId.ToString();
+
+            //If this is the transform component, we want to save it's file ID to look at it's children
+            if (component.GetElementType() == "Transform" || component.GetElementType() == "RectTransform")
+            {
+                transformFileId = newFileId.ToString();
+            }
+        }
+
+        foreach (string childFileIds in elements.FirstOrDefault(o => o.GetFileID() == transformFileId).GetTransformChildrenFileIds())
+        {
+            string childGameObjectFileId = elements.FirstOrDefault(o => o.GetFileID() == childFileIds).GetGameObjectFileId();
+            SerializedUnityElement childGameObjectElement = elements.FirstOrDefault(o => o.GetFileID() == childGameObjectFileId);
+            GetFileIDCorrectionMap(elements, gameObjectElement, currentDictionary);
+        }
+
+        return currentDictionary;
+    }
+
+
     private static void CorrectElementFileIDs(List<SerializedUnityElement> elements, SerializedUnityElement gameObjectElement)
     {
+        EditorUtility.DisplayProgressBar("Loading Prefab", "Right inside the call lol", 0);
+
         int newFileId = UnityEngine.Random.Range(1000, int.MaxValue - 1000);
         string gameObjectFileId = gameObjectElement.GetFileID();
         string transformFileId = "";
@@ -293,24 +361,31 @@ public static class GameRipView {
         Debug.Log("New Random Value: " + newFileId.ToString());
 
         //First, replace our base gameobject file id with the new one
-        foreach(SerializedUnityElement element in elements)
+        for(int i = 0; i < elements.Count; i++)
         {
-            element.ReplaceFileIds(gameObjectFileId, newFileId.ToString());
+            EditorUtility.DisplayProgressBar("Loading Prefab", "Correcting File Ids for GameObject : " + i + " / " + elements.Count, i / elements.Count);
+            elements[i].ReplaceFileIds(gameObjectFileId, newFileId.ToString());
         }
 
         //Now, go through every component and replace those child Ids
-        foreach(string componentFileId in gameObjectElement.GetComponentFileIds())
+        List<string> componentFileIds = gameObjectElement.GetComponentFileIds();
+        for(int i = 0; i < componentFileIds.Count; i++)
         {
+            //EditorUtility.DisplayProgressBar("Loading Prefab", "Correcting File Ids for components on parent object : " + i + " / " + componentFileIds.Count, componentFileIds.Count / i);
+            string componentFileId = componentFileIds[i];
+
+            //Get component from component file ID
             SerializedUnityElement component = elements.FirstOrDefault(o => o.GetFileID() == componentFileId);
             newFileId += 1;
 
-            Debug.Log("Added to Random Value: " + newFileId.ToString());
-
-            foreach (SerializedUnityElement element in elements)
+            //Loop through *every* element and patch this new file id
+            for(int j = 0; j < elements.Count; j++)
             {
-                element.ReplaceFileIds(componentFileId, newFileId.ToString());
+                EditorUtility.DisplayProgressBar("Loading Prefab", "Correcting File Ids on component : " + i + " / " + componentFileIds.Count + ", Patching to element : " + j + " / " + elements.Count, i / componentFileIds.Count);
+                elements[j].ReplaceFileIds(componentFileId, newFileId.ToString());
             }
 
+            //If this is the transform component, we want to save it's file ID to look at it's children
             if (component.GetElementType() == "Transform" || component.GetElementType() == "RectTransform")
             {
                 transformFileId = newFileId.ToString();

@@ -97,6 +97,7 @@ public static class AssetBundleView {
     private static void DrawDeepCopySettings()
     {
         _state.RipMeshes = EditorGUILayout.Toggle("Rip Meshes On Spawn", _state.RipMeshes);
+        _state.RipSprites = EditorGUILayout.Toggle("Rip Sprites On Spawn", _state.RipSprites);
     }
 
     private static void DrawFavorites()

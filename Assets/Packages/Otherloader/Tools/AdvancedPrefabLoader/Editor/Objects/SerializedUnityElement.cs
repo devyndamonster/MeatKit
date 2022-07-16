@@ -18,18 +18,6 @@ public class SerializedUnityElement {
 		return elementLines[0].Substring(elementLines[0].LastIndexOf('&') + 1).Trim();
     }
 
-	public string GetScriptGUID()
-    {
-		return elementLines
-			.First(o => o.Contains("m_Script"))
-			.Replace("m_Script:", "")
-			.Replace("{", "")
-			.Replace("}", "")
-			.Split(',')
-			.First(o => o.Contains("guid"))
-			.Replace("guid:", "")
-			.Trim();
-    }
 
 	public string GetValue(string field)
     {

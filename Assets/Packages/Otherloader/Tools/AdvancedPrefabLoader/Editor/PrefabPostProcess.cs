@@ -21,15 +21,30 @@ public class PrefabPostProcess
         return localIdProp.intValue;
     }
 
+
+    private static string CreateFolderRelativeToScene(string name)
+    {
+        string scenePath = EditorSceneManager.GetActiveScene().path;
+        string sceneFolderPath = scenePath.Substring(0, scenePath.LastIndexOf('/'));
+        string meshFolderPath = sceneFolderPath + "/" + name;
+        if (!AssetDatabase.IsValidFolder(meshFolderPath)) AssetDatabase.CreateFolder(sceneFolderPath, name);
+
+        return meshFolderPath;
+    }
+
+
     public static void ProcessSpawnedObject(GameObject spawned, PrefabLoaderAssetBundleState _state)
     {
         if (_state.RipMeshes)
         {
-            string scenePath = EditorSceneManager.GetActiveScene().path;
-            string sceneFolderPath = scenePath.Substring(0, scenePath.LastIndexOf('/'));
-            string meshFolderPath = sceneFolderPath + "/" + "Meshes";
-            if (!AssetDatabase.IsValidFolder(meshFolderPath)) AssetDatabase.CreateFolder(sceneFolderPath, "Meshes");
-            MeshRipper.RipAndReplaceMeshes(spawned, meshFolderPath);
+            string folderPath = CreateFolderRelativeToScene("Meshes");
+            MeshRipper.RipAndReplaceMeshes(spawned, folderPath);
+        }
+
+        if (_state.RipSprites)
+        {
+            string folderPath = CreateFolderRelativeToScene("Textures");
+            SpriteRipper.RipAndReplaceSprites(spawned, folderPath);
         }
         
         SaveScene();
