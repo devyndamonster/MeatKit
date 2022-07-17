@@ -35,18 +35,18 @@ public class PrefabPostProcess
 
     public static void ProcessSpawnedObject(GameObject spawned, PrefabLoaderAssetBundleState _state)
     {
+        if (_state.RipSprites)
+        {
+            string folderPath = CreateFolderRelativeToScene("Textures");
+            SpriteRipper.RipAndReplaceSprites(spawned, folderPath);
+        }
+
         if (_state.RipMeshes)
         {
             string folderPath = CreateFolderRelativeToScene("Meshes");
             MeshRipper.RipAndReplaceMeshes(spawned, folderPath);
         }
 
-        if (_state.RipSprites)
-        {
-            string folderPath = CreateFolderRelativeToScene("Textures");
-            SpriteRipper.RipAndReplaceSprites(spawned, folderPath);
-        }
-        
         SaveScene();
         Dictionary<int, string> scriptReferences = GetMonoBehaviorScriptReferenceDict(spawned);
         PatchSceneFile(scriptReferences);

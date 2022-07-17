@@ -14,7 +14,7 @@ public static class SpriteRipper
 		return new Dictionary<Type, Action<PropertyInfo, System.Object>>()
 		{
 			{ typeof(Texture), (pinfo, target) => { RipSpriteFromProperty(pinfo, target, exportPath); } },
-			{ typeof(List<Texture>), (pinfo, target) => { RipSpritesFromListProperty(pinfo, target, exportPath); } }
+			{ typeof(Material), (pinfo, target) => { RipSpritesFromMaterial(pinfo, target, exportPath); } }
 		};
 	} 
 
@@ -30,10 +30,43 @@ public static class SpriteRipper
     }
 
 
-	private static void RipSpritesFromMaterial(Material material, string exportPath)
+	private static void RipSpritesFromMaterial(PropertyInfo pinfo, System.Object target, string exportPath)
     {
+        try
+        {
+			Debug.Log("Ripping material: " + pinfo.Name);
+			Material mat = (Material)pinfo.GetValue(target, null);
+			Shader shader = mat.shader;
 
-    }
+			for (int i = 0; i < ShaderUtil.GetPropertyCount(shader); i++)
+			{
+				if (ShaderUtil.GetPropertyType(shader, i) == ShaderUtil.ShaderPropertyType.TexEnv)
+				{
+					Texture texture = mat.GetTexture(ShaderUtil.GetPropertyName(shader, i));
+
+					if(texture is Texture2D)
+                    {
+						Texture2D originalTexture = TextureUtils.GetCopyOfTexture((Texture2D)texture);
+						Texture2D newTexture = new Texture2D(originalTexture.width, originalTexture.height);
+						Graphics.CopyTexture(originalTexture, newTexture);
+
+						string textureAssetPath = exportPath + "/" + originalTexture.name + ".png";
+						if (!AssetUtils.DoesFileExistInAssets(textureAssetPath))
+						{
+							TextureUtils.WriteTextureToAssets(textureAssetPath, newTexture);
+						}
+					}
+				}
+			}
+
+		}
+		catch (Exception e)
+		{
+			Debug.LogError("Could not get textures from material: " + pinfo.Name);
+			Debug.LogError(e.ToString());
+
+		}
+	}
 
 	private static void RipSpriteFromProperty(PropertyInfo pinfo, System.Object target, string exportPath)
     {
@@ -64,12 +97,6 @@ public static class SpriteRipper
 	{
 
 	}
-
-	private static void RipSpritesFromListProperty(PropertyInfo pinfo, System.Object target, string exportPath)
-    {
-		Debug.Log("Cool list!");
-    }
-
 
 	private static void RipSpritesFromComponent(System.Object asset, string exportPath)
 	{

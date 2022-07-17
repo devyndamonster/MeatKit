@@ -9,7 +9,7 @@ public static class MeshRipper
 {
     public static void RipAndReplaceMeshes(GameObject spawned, string outputFolderPath)
     {
-        foreach (MeshFilter meshFilter in spawned.GetComponentsInChildren<MeshFilter>())
+        foreach (MeshFilter meshFilter in spawned.GetComponentsInChildren<MeshFilter>(true))
         {
             try
             {
